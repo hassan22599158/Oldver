@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>منظم المذاكرة - 20.1 (إصلاح تصدير PDF)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    
+    <script src="js/html2canvas.min.js"></script>
+    <script src="js/jspdf.umd.min.js"></script>
+
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50e3c2;
+            --danger-color: #e91e63;
+            --success-color: #28a745;
+            --ignore-color: #9e9e9e;
+            --gold-color: #ffc107;
+            --xp-color: #9c27b0;
+            --background-color: #f4f7f6;
+            --text-color: #333;
+            --container-bg: #ffffff;
+            --border-color: #e0e0e0;
+        }
+        body { font-family: 'Cairo', sans-serif; background-color: var(--background-color); color: var(--text-color); margin: 0; padding: 0; line-height: 1.6; }
+        .main-header { background-color: var(--primary-color); color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 10; }
+        .menu-btn { font-size: 30px; cursor: pointer; background: none; border: none; color: white; }
+        .main-header h1 { color: white; margin: 0; font-size: 1.5em; }
+        .sidenav { height: 100%; width: 0; position: fixed; z-index: 20; top: 0; right: 0; background-color: #111; overflow-x: hidden; transition: 0.5s; padding-top: 60px; }
+        .sidenav a { padding: 15px 20px; text-decoration: none; font-size: 22px; color: #818181; display: block; transition: 0.3s; }
+        .sidenav a:hover { color: #f1f1f1; }
+        .sidenav .close-btn { position: absolute; top: 15px; left: 25px; font-size: 36px; }
+        .main-content { padding: 20px; }
+        .container { max-width: 900px; margin: 20px auto; background: var(--container-bg); padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.08); }
+        h2, h3, h4 { color: var(--primary-color); text-align: center; }
+        .btn { display: inline-block; background-color: var(--primary-color); color: white; padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; transition: background-color 0.3s; margin: 5px; }
+        .btn:hover { background-color: #357abd; }
+        .btn-secondary { background-color: var(--secondary-color); }
+        .btn-secondary:hover { background-color: #45bda3; }
+        .btn-danger { background-color: var(--danger-color); }
+        .btn-danger:hover { background-color: #c2185b; }
+        .delete-btn { background: var(--danger-color); color: white; border: none; border-radius: 50%; width: 24px; height: 24px; font-size: 14px; line-height: 24px; text-align: center; cursor: pointer; font-weight: bold; transition: transform 0.2s; }
+        .delete-btn:hover { transform: scale(1.1); }
+        .subject { background: #f9f9f9; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 15px; padding: 15px; }
+        .header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 1.2em; font-weight: bold; }
+        .header-controls { display: flex; align-items: center; gap: 10px; }
+        .content { padding-top: 10px; padding-right: 20px; border-right: 3px solid var(--secondary-color); display: block; }
+        .hidden { display: none; }
+        .unit { margin-top: 10px; background: white; padding: 10px; border-radius: 6px; border: 1px solid #eee; }
+        hr { border: none; border-top: 2px solid var(--primary-color); margin: 30px 0; opacity: 0.5; }
+        .lesson-item { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+        .lesson-done-checkbox { min-width: 20px; width: 20px; height: 20px; cursor: pointer; }
+        .unit-include-checkbox { min-width: 18px; width: 18px; height: 18px; cursor: pointer; margin-left: 8px; }
+        input[type="text"], input[type="number"] { width: calc(100% - 24px); padding: 11px; margin-bottom: 10px; border: 1px solid var(--border-color); border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 16px; transition: all 0.2s; }
+        input.lesson-name.completed { text-decoration: line-through; color: var(--success-color); border-color: var(--success-color); background-color: #f0fff0; }
+        input.lesson-name.ignored { text-decoration: line-through; text-decoration-color: var(--ignore-color); color: var(--ignore-color); border-color: var(--border-color); background-color: #fafafa; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); text-align: center; max-width: 400px; width: 90%; }
+        .modal-content p { font-size: 1.2em; margin-top: 0; margin-bottom: 25px; }
+        .modal-buttons { display: flex; justify-content: center; gap: 15px; }
+        #completed-lessons-list .subject-header, #analytics-view .subject-header { font-size: 1.5em; margin-top:20px; padding-bottom: 5px; text-align: right; }
+        #completed-lessons-list .unit-header { font-size: 1.2em; color: #555; margin-top:10px; margin-right: 20px; text-align: right; }
+        #completed-lessons-list ul { list-style-type: none; padding-right: 40px; }
+        #completed-lessons-list li { padding: 5px; background: #f0fff0; border-right: 3px solid var(--success-color); margin-bottom: 5px; border-radius: 4px;}
+        .stat-card { background-color: #f8f9fa; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px; border: 1px solid var(--border-color); }
+        .stat-card .stat-value { font-size: 2.5em; font-weight: bold; color: var(--primary-color); }
+        .analytics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 25px; }
+        .subject-analytic-card { display: flex; flex-direction: column; align-items: center; }
+        .circle-progress { position: relative; width: 150px; height: 150px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--success-color) 0deg, var(--border-color) 0deg); transition: background 1s; }
+        .circle-progress::before { content: ""; position: absolute; width: 85%; height: 85%; background: var(--container-bg); border-radius: 50%; }
+        .circle-progress-value { position: relative; font-size: 1.8em; font-weight: bold; }
+        .profile-card { padding: 20px; border-radius: 10px; background: linear-gradient(135deg, #4a90e2, #50e3c2); color: white; margin-bottom: 30px; text-align: center; }
+        .profile-card h3 { color: white; }
+        .level-display { font-size: 1.5em; font-weight: bold; }
+        .level-badge { background-color: var(--gold-color); color: #333; padding: 2px 10px; border-radius: 12px; display: inline-block; }
+        .xp-bar-container { background-color: rgba(255, 255, 255, 0.3); border-radius: 15px; margin-top: 10px; padding: 3px; }
+        .xp-bar-fill { height: 15px; background-color: var(--gold-color); border-radius: 12px; transition: width 0.5s ease-in-out; text-align: center; font-size: 10px; line-height: 15px; color: #333; }
+        .xp-text { font-size: 0.9em; }
+        .achievements-section h4 { border-bottom: 2px solid var(--secondary-color); padding-bottom: 10px; margin-bottom: 20px; }
+        .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 25px; }
+        .badge { display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .badge-icon { font-size: 4em; line-height: 1; transition: transform 0.3s, filter 0.3s; position: relative; }
+        .badge.locked .badge-icon { filter: grayscale(100%) opacity(0.3); }
+        .badge.unlocked .badge-icon { color: var(--gold-color); transform: scale(1.1); }
+        .badge.unlocked .badge-icon::after { content: '⭐'; position: absolute; top: -10px; right: -10px; font-size: 0.4em; animation: star-pop 0.5s ease-out; }
+        .badge-name { font-weight: bold; margin-top: 10px; }
+        .badge-desc { font-size: 0.8em; color: #777; }
+        @keyframes star-pop { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+        .day-card { background: var(--container-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+        .schedule-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+        .day-header { font-size: 1.3em; font-weight: bold; padding-bottom: 10px; margin-bottom: 10px; border-bottom: 2px solid var(--secondary-color); }
+        .day-card ul { list-style: none; padding: 0; margin: 0; }
+        .day-card li { background: #f9f9f9; padding: 8px 12px; border-radius: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .task-subject { font-size: 0.8em; color: white; padding: 2px 8px; border-radius: 4px; }
+        .mode-selection { background-color: #f0f8ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .mode-selection label { margin-left: 20px; font-weight: bold; cursor:pointer;}
+        .mode-selection p { margin-top: 0; color: #555; font-size: 0.9em;}
+        #pdf-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            font-size: 1.5em;
+            color: var(--primary-color);
+            font-weight: bold;
+            text-align: center;
+        }
+        /* كلاس جديد لتنسيق الجدول أثناء عملية التصدير فقط */
+        .pdf-export-layout {
+            grid-template-columns: 1fr !important;
+            width: 900px !important; /* عرض عريض لضمان جودة الصورة */
+        }
+    </style>
+</head>
+<body>
+
+    <div id="pdf-loader">
+        جاري تحضير ملف الـ PDF...<br>قد يستغرق الأمر بضع ثوانٍ
+    </div>
+
+    <div id="mySidenav" class="sidenav">
+        <a href="javascript:void(0)" class="close-btn" onclick="closeNav()">&times;</a>
+        <a href="javascript:void(0)" onclick="showView('main-view'); closeNav();">الرئيسية والمخطط</a>
+        <a href="javascript:void(0)" onclick="showView('analytics-view'); closeNav();">لوحة التحليل</a>
+        <a href="javascript:void(0)" onclick="showView('achievements-view'); closeNav();">الإنجازات</a>
+        <a href="javascript:void(0)" onclick="showView('completed-view'); closeNav();">الدروس المنجزة</a>
+    </div>
+
+    <header class="main-header">
+        <h1>منظم المذاكرة الذكي</h1>
+        <button class="menu-btn" onclick="openNav()">&#9776;</button>
+    </header>
+
+    <main class="main-content">
+        <div id="main-view" class="view">
+            <div class="container">
+                <h2><span style="font-size: 1.5em;">🗂️</span> إدارة البيانات</h2>
+                <p>احفظ عملك على جهازك أو استرجعه في أي وقت.</p>
+                <button type="button" class="btn btn-secondary" onclick="exportData()">تصدير البيانات</button>
+                <label class="btn">استيراد البيانات<input type="file" id="import-file" onchange="importData(event)" style="display:none;"></label>
+            </div>
+            <div class="container">
+                <h2><span style="font-size: 1.5em;">📚</span> 1. أضف المواد والدروس</h2>
+                <div id="subjects-container"></div>
+                <div style="margin-top: 20px;"><input type="text" id="new-subject-name" placeholder="أكتب اسم المادة الجديدة هنا..."><button type="button" class="btn" onclick="addSubject()">+ إضافة مادة</button></div>
+            </div>
+            <div class="container">
+                <h2><span style="font-size: 1.5em;">⚙️</span> 2. إعدادات الجدول</h2>
+                <div class="mode-selection">
+                    <h4>اختر نمط الجدولة:</h4>
+                    <label><input type="radio" name="schedule-mode" value="interleaved" checked> تداخل المجموعات</label>
+                    <p>توزيع احترافي ومتوازن للدروس من كل المواد على كامل المدة.</p>
+                    <label><input type="radio" name="schedule-mode" value="sequential"> ترتيب المجموعات</label>
+                    <p>إنهاء كل مجموعة دراسية على حدة، مع توزيع احترافي داخل كل مجموعة.</p>
+                </div>
+                <p>قسّم موادك إلى مجموعات دراسية.</p>
+                <div id="groups-container"></div>
+                <button type="button" class="btn" id="add-group-btn" onclick="addGroup()">+ إضافة مجموعة دراسية</button>
+                <hr>
+                <p>أدخل عدد الأيام الإجمالي للخطة:</p>
+                <input type="number" id="total-days" placeholder="مثال: 30" min="1">
+                <p style="font-size: 0.9em; color: #555;">(اختياري) ضع سقفاً أعلى لعدد الدروس في اليوم الواحد:</p>
+                <input type="number" id="max-lessons-per-day" placeholder="مثال: 4" min="1">
+                <br><br>
+                <button type="button" class="btn btn-secondary" onclick="generateSchedule()">🚀 إنشاء الجدول الآن</button>
+            </div>
+            <div class="container" id="schedule-container" style="display:none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2><span style="font-size: 1.5em;">🗓️</span> 3. خطتك الدراسية جاهزة!</h2>
+                    <button type="button" class="btn" onclick="exportScheduleAsPDF()">
+                        <span style="font-size: 1.2em;">📄</span> مشاركة كـ PDF
+                    </button>
+                </div>
+                <div id="schedule-output" class="schedule-grid"></div>
+            </div>
+        </div>
+        <div id="analytics-view" class="view" style="display:none;">
+            <div class="container">
+                <h2>📊 لوحة تحليل الأداء</h2>
+                <p style="text-align: center;">نظرة عامة على تقدمك في المواد المضمنة في خططك.</p>
+                <div id="overall-stats" class="stat-card"></div>
+                <hr>
+                <h4>التقدم في كل مادة:</h4>
+                <div id="subject-analytics-grid" class="analytics-grid"></div>
+            </div>
+        </div>
+        <div id="achievements-view" class="view" style="display:none;">
+            <div class="container">
+                <h2>🏆 الإنجازات والشارات</h2>
+                <div id="profile-card" class="profile-card"></div>
+                <div class="achievements-section">
+                    <h4>الشارات المكتسبة</h4>
+                    <div id="unlocked-badges-grid" class="badge-grid"></div>
+                </div>
+                <hr>
+                <div class="achievements-section">
+                    <h4>شارات قادمة</h4>
+                    <div id="locked-badges-grid" class="badge-grid"></div>
+                </div>
+            </div>
+        </div>
+        <div id="completed-view" class="view" style="display:none;">
+            <div class="container">
+                <h2>✅ الدروس المنجزة</h2>
+                <p style="text-align: center;">هنا ملخص لكل الدروس التي أتممتها. عمل رائع!</p>
+                <div id="completed-lessons-list"></div>
+            </div>
+        </div>
+    </main>
+
+    <div id="custom-confirm-overlay" class="modal-overlay">
+        <div class="modal-content">
+            <p id="custom-confirm-msg">هل أنت متأكد من الحذف؟ لن يمكنك التراجع عن هذا الإجراء.</p>
+            <div class="modal-buttons">
+                <button id="confirm-yes-btn" class="btn btn-danger">نعم، احذف</button>
+                <button id="confirm-no-btn" class="btn">إلغاء</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // --- START OF SCRIPT ---
+        const subjectColors = [
+            '#E6194B', '#3CB44B', '#FFE119', '#4363D8', '#F58231', '#911EB4', '#42D4F4', '#F032E6',
+            '#BFDE45', '#FABED4', '#469990', '#DCBEFF', '#9A6324', '#800000', '#A9A9A9', '#000075',
+            '#808000', '#E52B50', '#00A86B', '#5D4037'
+        ];
+        let subjectCounter = 0;
+        let groupCounter = 0;
+
+        let appState = {
+            xp: 0,
+            level: 1,
+            unlockedBadges: new Set(),
+            lastStudyDate: null,
+            currentStreak: 0
+        };
+        const XP_PER_LESSON = 10;
+        const xpForLevels = [0, 100, 250, 500, 1000, 2000, 5000, 10000];
+
+        const allBadges = {
+            'first_lesson': { name: 'بداية موفقة', desc: 'أنجزت أول درس لك!', icon: '🚀' },
+            '10_lessons': { name: 'على الطريق الصحيح', desc: 'أنجزت 10 دروس!', icon: '👟' },
+            '50_lessons': { name: 'المثابر', desc: 'أنجزت 50 درسًا!', icon: '💪' },
+            '100_lessons': { name: 'الأسطورة', desc: 'أنجزت 100 درس!', icon: '👑' },
+            'streak_3': { name: 'على الطريق! 🔥', desc: 'سلسلة مذاكرة 3 أيام', icon: '🔥' },
+            'streak_7': { name: 'محارب الأسبوع', desc: 'سلسلة مذاكرة 7 أيام', icon: '⚔️' },
+            'night_owl': { name: 'بومة الليل', desc: 'أنجزت درسًا بعد منتصف الليل', icon: '🦉' },
+            'early_bird': { name: 'الطائر المبكر', desc: 'أنجزت درسًا قبل 8 صباحًا', icon: '☀️' }
+        };
+
+        const confirmModal = document.getElementById('custom-confirm-overlay');
+        const confirmYesBtn = document.getElementById('confirm-yes-btn');
+        const confirmNoBtn = document.getElementById('confirm-no-btn');
+        let itemToDelete = { element: null, selector: '' };
+        
+        window.addEventListener('beforeunload', function (e) {
+            e.preventDefault();
+            e.returnValue = '';
+        });
+
+        function requestDeleteConfirmation(button, selector) {
+            itemToDelete.element = button;
+            itemToDelete.selector = selector;
+            confirmModal.classList.add('active');
+        }
+
+        confirmYesBtn.addEventListener('click', function() {
+            if (itemToDelete.element && itemToDelete.selector) {
+                deleteParent(itemToDelete.element, itemToDelete.selector);
+            }
+            confirmModal.classList.remove('active');
+        });
+
+        confirmNoBtn.addEventListener('click', function() {
+            itemToDelete = { element: null, selector: '' };
+            confirmModal.classList.remove('active');
+        });
+        
+        function deleteParent(element, selector) {
+            const elementToRemove = element.closest(selector);
+            if (elementToRemove) {
+                elementToRemove.remove();
+                updateAndRenderAllStats(false);
+            }
+            if (selector === '.subject') updateAllGroupPickers();
+        }
+
+        function openNav() { document.getElementById("mySidenav").style.width = "250px"; }
+        function closeNav() { document.getElementById("mySidenav").style.width = "0"; }
+        
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(view => view.style.display = 'none');
+            document.getElementById(viewId).style.display = 'block';
+            if (viewId === 'analytics-view') populateAnalyticsView();
+            if (viewId === 'achievements-view') populateAchievementsView();
+            if (viewId === 'completed-view') populateCompletedView();
+        }
+
+        function toggleLessonStyle(element) {
+            const lessonItem = element.closest('.lesson-item');
+            if (!lessonItem) return;
+            const lessonInput = lessonItem.querySelector('.lesson-name');
+            const doneCheckbox = lessonItem.querySelector('.lesson-done-checkbox');
+            const isIgnored = lessonInput.value.trim().startsWith('#');
+            const wasCompleted = lessonInput.classList.contains('completed');
+            
+            lessonInput.classList.toggle('ignored', isIgnored);
+            if (!isIgnored) {
+                lessonInput.classList.toggle('completed', doneCheckbox.checked);
+            } else {
+                lessonInput.classList.remove('completed');
+            }
+            const isNowCompleted = lessonInput.classList.contains('completed');
+            if(isNowCompleted && !wasCompleted) {
+                updateAndRenderAllStats(true);
+            } else if (!isNowCompleted && wasCompleted) {
+                updateAndRenderAllStats(false);
+            }
+        }
+
+        function calculateCurrentState() {
+            let totalIncludedLessons = 0;
+            let totalCompletedLessons = 0;
+            const subjectsData = [];
+            document.querySelectorAll('.subject').forEach(subjectDiv => {
+                let subjectTotal = 0;
+                let subjectCompleted = 0;
+                const subjectUnits = [];
+                subjectDiv.querySelectorAll('.unit').forEach(unitDiv => {
+                    const includeUnitCheckbox = unitDiv.querySelector('.unit-include-checkbox');
+                    if (includeUnitCheckbox && includeUnitCheckbox.checked) {
+                        let unitTotal = 0;
+                        let unitCompleted = 0;
+                        unitDiv.querySelectorAll('.lesson-item').forEach(lessonItem => {
+                            const lessonInput = lessonItem.querySelector('.lesson-name');
+                            const lessonName = lessonInput.value.trim();
+                            if (lessonName && !lessonName.startsWith('#')) {
+                                unitTotal++;
+                                const doneCheckbox = lessonItem.querySelector('.lesson-done-checkbox');
+                                if (doneCheckbox && doneCheckbox.checked) {
+                                    unitCompleted++;
+                                }
+                            }
+                        });
+                        if (unitTotal > 0) {
+                            subjectUnits.push({ name: unitDiv.dataset.name, total: unitTotal, completed: unitCompleted });
+                            subjectTotal += unitTotal;
+                            subjectCompleted += unitCompleted;
+                        }
+                    }
+                });
+                if (subjectTotal > 0) {
+                    subjectsData.push({ name: subjectDiv.dataset.name, color: subjectDiv.dataset.color, total: subjectTotal, completed: subjectCompleted, units: subjectUnits });
+                    totalIncludedLessons += subjectTotal;
+                    totalCompletedLessons += subjectCompleted;
+                }
+            });
+            return { totalIncluded: totalIncludedLessons, totalCompleted: totalCompletedLessons, subjects: subjectsData };
+        }
+
+        function updateAndRenderAllStats(lessonJustCompleted = false) {
+            if (lessonJustCompleted) {
+                appState.xp += XP_PER_LESSON;
+                if (appState.level < xpForLevels.length - 1 && appState.xp >= xpForLevels[appState.level]) {
+                    appState.level++;
+                }
+                const today = new Date().toISOString().slice(0, 10);
+                if (appState.lastStudyDate !== today) {
+                    const yesterday = new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().slice(0, 10);
+                    appState.currentStreak = (appState.lastStudyDate === yesterday) ? appState.currentStreak + 1 : 1;
+                    appState.lastStudyDate = today;
+                }
+            }
+
+            const state = calculateCurrentState();
+            
+            if (state.totalCompleted >= 1) appState.unlockedBadges.add('first_lesson');
+            if (state.totalCompleted >= 10) appState.unlockedBadges.add('10_lessons');
+            if (state.totalCompleted >= 50) appState.unlockedBadges.add('50_lessons');
+            if (state.totalCompleted >= 100) appState.unlockedBadges.add('100_lessons');
+            if (appState.currentStreak >= 3) appState.unlockedBadges.add('streak_3');
+            if (appState.currentStreak >= 7) appState.unlockedBadges.add('streak_7');
+            if(lessonJustCompleted) {
+                const currentHour = new Date().getHours();
+                if (currentHour >= 0 && currentHour < 5) appState.unlockedBadges.add('night_owl');
+                if (currentHour >= 5 && currentHour < 8) appState.unlockedBadges.add('early_bird');
+            }
+
+            state.subjects.forEach(subject => {
+                if (subject.total > 0 && subject.completed === subject.total) appState.unlockedBadges.add(`subject_expert_${subject.name}`);
+                subject.units.forEach(unit => {
+                    if (unit.total > 0 && unit.completed === unit.total) appState.unlockedBadges.add(`unit_expert_${subject.name}_${unit.name}`);
+                });
+            });
+
+            if (document.getElementById('analytics-view').style.display === 'block') populateAnalyticsView(state);
+            if (document.getElementById('achievements-view').style.display === 'block') populateAchievementsView(state);
+        }
+        
+        function populateAnalyticsView(state = null) {
+            const currentState = state || calculateCurrentState();
+            const overallStatsDiv = document.getElementById('overall-stats');
+            const subjectContainer = document.getElementById('subject-analytics-grid');
+            const overallProgress = currentState.totalIncluded > 0 ? Math.round((currentState.totalCompleted / currentState.totalIncluded) * 100) : 0;
+            overallStatsDiv.innerHTML = `<div class="stat-value">${overallProgress}%</div><div>التقدم الإجمالي</div><small>(${currentState.totalCompleted} من أصل ${currentState.totalIncluded} درس مضمن)</small>`;
+            subjectContainer.innerHTML = '';
+            currentState.subjects.forEach(subject => {
+                const progress = subject.total > 0 ? Math.round((subject.completed / subject.total) * 100) : 0;
+                const progressDegrees = progress * 3.6;
+                const subjectStatHTML = `<div class="subject-analytic-card"><div class="circle-progress" style="background: conic-gradient(${subject.color} ${progressDegrees}deg, var(--border-color) 0deg)"><span class="circle-progress-value">${progress}%</span></div><h4 style="color:${subject.color}; margin-top:15px;">${subject.name}</h4><small>${subject.completed} / ${subject.total}</small></div>`;
+                subjectContainer.innerHTML += subjectStatHTML;
+            });
+        }
+        
+        function populateAchievementsView(state = null) {
+            const currentState = state || calculateCurrentState();
+            const profileCard = document.getElementById('profile-card');
+            const unlockedGrid = document.getElementById('unlocked-badges-grid');
+            const lockedGrid = document.getElementById('locked-badges-grid');
+            
+            const currentLevelXP = xpForLevels[appState.level - 1];
+            const nextLevelXP = xpForLevels[appState.level] || appState.xp;
+            const xpInLevel = appState.xp - currentLevelXP;
+            const xpForNextLevel = nextLevelXP - currentLevelXP;
+            const xpProgress = xpForNextLevel > 0 ? Math.min(100, Math.round((xpInLevel / xpForNextLevel) * 100)) : 100;
+
+            profileCard.innerHTML = `<div class="level-display">المستوى <span class="level-badge">${appState.level}</span></div><div class="xp-bar-container"><div class="xp-bar-fill" style="width: ${xpProgress}%"></div></div><div class="xp-text">${appState.xp} XP</div><div>سلسلة المذاكرة: ${appState.currentStreak} أيام متتالية</div>`;
+            unlockedGrid.innerHTML = '';
+            lockedGrid.innerHTML = '';
+            
+            const masterBadgeList = { ...allBadges };
+            currentState.subjects.forEach(subject => {
+                masterBadgeList[`subject_expert_${subject.name}`] = { name: `بروفيسور ${subject.name}`, desc: `أنجزت كل دروس مادة ${subject.name}`, icon: '🎓' };
+                subject.units.forEach(unit => {
+                    masterBadgeList[`unit_expert_${subject.name}_${unit.name}`] = { name: `خبير ${unit.name}`, desc: `أنجزت كل دروس وحدة ${unit.name}`, icon: '⭐' };
+                });
+            });
+            
+            for (const id in masterBadgeList) {
+                const badge = masterBadgeList[id];
+                const isUnlocked = appState.unlockedBadges.has(id);
+                const badgeHTML = `<div class="badge ${isUnlocked ? 'unlocked' : 'locked'}"><div class="badge-icon">${badge.icon}</div><div class="badge-name">${badge.name}</div><div class="badge-desc">${badge.desc}</div></div>`;
+                if(isUnlocked) unlockedGrid.innerHTML += badgeHTML;
+                else lockedGrid.innerHTML += badgeHTML;
+            }
+        }
+        
+        function populateCompletedView() {
+            const completedListDiv = document.getElementById('completed-lessons-list');
+            completedListDiv.innerHTML = '';
+            let hasAnyCompleted = false;
+            document.querySelectorAll('.subject').forEach(subjectDiv => {
+                const subjectName = subjectDiv.dataset.name;
+                const subjectColor = subjectDiv.dataset.color;
+                let subjectHTML = '';
+                let hasCompletedInSubject = false;
+                subjectDiv.querySelectorAll('.unit').forEach(unitDiv => {
+                    const unitName = unitDiv.dataset.name;
+                    let unitHTML = '';
+                    let hasCompletedInUnit = false;
+                    unitDiv.querySelectorAll('.lesson-item').forEach(lessonItem => {
+                        const checkbox = lessonItem.querySelector('.lesson-done-checkbox');
+                        const lessonName = lessonItem.querySelector('.lesson-name').value;
+                        if (checkbox && checkbox.checked && !lessonName.trim().startsWith('#')) {
+                            hasAnyCompleted = true;
+                            hasCompletedInSubject = true;
+                            hasCompletedInUnit = true;
+                            unitHTML += `<li>${lessonName}</li>`;
+                        }
+                    });
+                    if (hasCompletedInUnit) subjectHTML += `<h4 class="unit-header">${unitName}</h4><ul>${unitHTML}</ul>`;
+                });
+                if (hasCompletedInSubject) completedListDiv.innerHTML += `<div class="completed-subject"><h3 class="subject-header" style="color:${subjectColor}; border-bottom: 2px solid ${subjectColor};">${subjectName}</h3>${subjectHTML}</div>`;
+            });
+            if (!hasAnyCompleted) completedListDiv.innerHTML = '<p style="text-align:center; color:#888;">لم يتم إنجاز أي درس بعد. هيا نبدأ!</p>';
+        }
+        
+        function addLesson(button, lessonData = { name: '', done: false }) {
+            const lessonsContainer = button.closest('.content').querySelector('.lessons-container');
+            const lessonItem = document.createElement('div');
+            lessonItem.className = 'lesson-item';
+            const checkedAttr = lessonData.done ? 'checked' : '';
+            const isIgnored = lessonData.name.trim().startsWith('#');
+            let initialClass = 'lesson-name';
+            if (isIgnored) initialClass += ' ignored';
+            else if (lessonData.done) initialClass += ' completed';
+            lessonItem.innerHTML = `<input type="checkbox" class="lesson-done-checkbox" onchange="toggleLessonStyle(this)" ${checkedAttr}><input type="text" class="${initialClass}" placeholder="اسم درس جديد" value="${lessonData.name}" oninput="toggleLessonStyle(this)"><button type="button" class="delete-btn" data-action="delete" data-target=".lesson-item">×</button>`;
+            lessonsContainer.appendChild(lessonItem);
+        }
+
+        function addUnit(button, unitData = null) {
+            const subjectContent = button.closest('.content');
+            let unitName, include = true;
+            if (unitData) {
+                unitName = unitData.name;
+                include = (unitData.include !== false);
+            } else {
+                const unitNameInput = subjectContent.querySelector('.new-unit-name');
+                unitName = unitNameInput.value.trim();
+                if (!unitName) { alert("الرجاء إدخال اسم الوحدة."); return; }
+                unitNameInput.value = '';
+            }
+            const unitContainer = subjectContent.querySelector('.units-container');
+            const newUnitDiv = document.createElement('div');
+            newUnitDiv.className = 'unit';
+            newUnitDiv.dataset.name = unitName;
+            const includeChecked = include ? 'checked' : '';
+            newUnitDiv.innerHTML = `<div class="header" data-action="toggle"><div class="header-controls"><button type="button" class="delete-btn" data-action="delete" data-target=".unit">×</button><span>${unitName}</span></div><div class="header-controls"><label title="تضمين هذه الوحدة في الجداول؟" style="font-size:0.8rem; color:#555; display:flex; align-items:center; gap:5px;">تضمين<input type="checkbox" class="unit-include-checkbox" ${includeChecked} onchange="updateAndRenderAllStats(false)"></label><span class="toggle-icon">▼</span></div></div><div class="content"><div class="lessons-container"></div><button type="button" class="btn btn-small" data-action="add-lesson">+ إضافة درس</button></div>`;
+            unitContainer.appendChild(newUnitDiv);
+            if (unitData && unitData.lessons) {
+                const addLessonBtn = newUnitDiv.querySelector('[data-action="add-lesson"]');
+                unitData.lessons.forEach(lessonData => { addLesson(addLessonBtn, lessonData); });
+            }
+        }
+        
+        function addSubject(name = '', units = [], color = null) {
+            let subjectName = name;
+            if (!subjectName) {
+                const subjectNameInput = document.getElementById('new-subject-name');
+                subjectName = subjectNameInput.value.trim();
+                if (!subjectName) { alert("الرجاء إدخال اسم المادة."); return; }
+                subjectNameInput.value = "";
+            }
+            const assignedColor = color || subjectColors[subjectCounter++ % subjectColors.length];
+            const subjectDiv = document.createElement('div');
+            subjectDiv.className = 'subject';
+            subjectDiv.dataset.name = subjectName;
+            subjectDiv.dataset.color = assignedColor;
+            subjectDiv.innerHTML = `<div class="header" data-action="toggle"><div class="header-controls"><button type="button" class="delete-btn" data-action="delete" data-target=".subject">×</button><span style="color:${assignedColor};">${subjectName}</span></div><span class="toggle-icon">▼</span></div><div class="content"><div class="units-container"></div><div style="margin-top:10px; background: #f0f0f0; padding:10px; border-radius:6px;"><input type="text" class="new-unit-name" placeholder="اسم الوحدة الجديدة"><button type="button" class="btn btn-small" data-action="add-unit">+ إضافة وحدة</button></div></div>`;
+            document.getElementById('subjects-container').appendChild(subjectDiv);
+            if (units.length > 0) {
+                const addUnitBtn = subjectDiv.querySelector('[data-action="add-unit"]');
+                units.forEach(unitData => { addUnit(addUnitBtn, unitData); });
+            }
+            updateAllGroupPickers();
+        }
+
+        document.getElementById('subjects-container').addEventListener('click', function(e) {
+            const target = e.target;
+            if (target.matches('.unit-include-checkbox')) { updateAndRenderAllStats(false); return; }
+            const action = target.dataset.action;
+            if (action) {
+                e.stopPropagation();
+                if (action === 'delete') requestDeleteConfirmation(target, target.dataset.target);
+                else if (action === 'add-unit') addUnit(target);
+                else if (action === 'add-lesson') addLesson(target);
+            } else {
+                const header = target.closest('.header[data-action="toggle"]');
+                if (header) {
+                    const content = header.nextElementSibling;
+                    const icon = header.querySelector('.toggle-icon');
+                    if (content) content.classList.toggle('hidden');
+                    if (icon) icon.textContent = content.classList.contains('hidden') ? '◀' : '▼';
+                }
+            }
+        });
+        
+        function getAllSubjects() { const subjects = []; document.querySelectorAll('.subject').forEach(subjectDiv => { subjects.push({ name: subjectDiv.dataset.name, color: subjectDiv.dataset.color }); }); return subjects; }
+        function populateGroupPicker(container) { container.innerHTML = ''; const allSubjects = getAllSubjects(); if (allSubjects.length === 0) { container.innerHTML = '<p style="color:#888;">الرجاء إضافة مواد أولاً.</p>'; return; } allSubjects.forEach(subject => { container.innerHTML += `<label style="margin-left: 15px; display: inline-block;"><input type="checkbox" class="group-subject-checkbox" value="${subject.name}" checked><span style="color:${subject.color}; font-weight:bold;">${subject.name}</span></label>`; }); }
+        function updateAllGroupPickers() { document.querySelectorAll('.group-subject-picker').forEach(populateGroupPicker); groupCounter = 0; document.querySelectorAll('.study-group').forEach(group => { groupCounter++; group.querySelector('.study-group-header span').textContent = `المجموعة ${groupCounter}`; }); }
+        function addGroup() { groupCounter++; const groupDiv = document.createElement('div'); groupDiv.className = 'study-group'; groupDiv.innerHTML = `<div class="study-group-header"><span>المجموعة ${groupCounter}</span><button class="delete-btn" onclick="requestDeleteConfirmation(this, '.study-group')">×</button></div><div class="group-subject-picker"></div>`; document.getElementById('groups-container').appendChild(groupDiv); populateGroupPicker(groupDiv.querySelector('.group-subject-picker')); }
+        function getSchedulableLessons(groupDiv) { const selectedSubjects = Array.from(groupDiv.querySelectorAll('.group-subject-checkbox:checked')).map(cb => cb.value); const groupLessons = []; selectedSubjects.forEach(subjectName => { const subjectDiv = document.querySelector(`.subject[data-name="${subjectName}"]`); if (subjectDiv) { subjectDiv.querySelectorAll('.unit').forEach(unitDiv => { const includeUnitCheckbox = unitDiv.querySelector('.unit-include-checkbox'); if (includeUnitCheckbox && includeUnitCheckbox.checked) { const subjectColor = subjectDiv.dataset.color; unitDiv.querySelectorAll('.lesson-item').forEach(lessonItem => { const doneCheckbox = lessonItem.querySelector('.lesson-done-checkbox'); const lessonInput = lessonItem.querySelector('.lesson-name'); const lessonName = lessonInput.value.trim(); if (lessonName && !lessonName.startsWith('#') && doneCheckbox && !doneCheckbox.checked) { groupLessons.push({ subject: subjectName, lesson: lessonName, color: subjectColor }); } }); } }); } }); return groupLessons; }
+        
+        // --- START: THE GENIUS SCHEDULER ENGINE (v18 - FINAL) ---
+
+        function geniusScheduler(allLessons, numDays) {
+            const finalSchedule = {};
+            for (let i = 0; i < numDays; i++) { finalSchedule[i] = []; }
+
+            if (!allLessons || allLessons.length === 0 || numDays === 0) {
+                return finalSchedule;
+            }
+
+            const scheduleShape = {};
+            const totalLessons = allLessons.length;
+            const baseLessonsPerDay = Math.floor(totalLessons / numDays);
+            const remainderLessons = totalLessons % numDays;
+            for (let i = 0; i < numDays; i++) {
+                scheduleShape[i] = baseLessonsPerDay + (i < remainderLessons ? 1 : 0);
+            }
+
+            const lessonQueues = {};
+            const subjectTurnOrder = [];
+            allLessons.forEach(lesson => {
+                if (!lessonQueues[lesson.subject]) {
+                    lessonQueues[lesson.subject] = [];
+                    subjectTurnOrder.push(lesson.subject);
+                }
+                lessonQueues[lesson.subject].push(lesson);
+            });
+            
+            let subjectCycleIndex = 0;
+            for (let day = 0; day < numDays; day++) {
+                const slotsToFill = scheduleShape[day];
+                const subjectsUsedToday = new Set();
+                
+                for (let slot = 0; slot < slotsToFill; slot++) {
+                    let lessonAdded = false;
+                    for (let i = 0; i < subjectTurnOrder.length; i++) {
+                        const subjectName = subjectTurnOrder[subjectCycleIndex];
+                        if (lessonQueues[subjectName]?.length > 0 && !subjectsUsedToday.has(subjectName)) {
+                            finalSchedule[day].push(lessonQueues[subjectName].shift());
+                            subjectsUsedToday.add(subjectName);
+                            lessonAdded = true;
+                            subjectCycleIndex = (subjectCycleIndex + 1) % subjectTurnOrder.length;
+                            break;
+                        }
+                        subjectCycleIndex = (subjectCycleIndex + 1) % subjectTurnOrder.length;
+                    }
+
+                    if (!lessonAdded) {
+                        for (let i = 0; i < subjectTurnOrder.length; i++) {
+                             const subjectName = subjectTurnOrder[subjectCycleIndex];
+                            if (lessonQueues[subjectName]?.length > 0) {
+                                finalSchedule[day].push(lessonQueues[subjectName].shift());
+                                lessonAdded = true;
+                                subjectCycleIndex = (subjectCycleIndex + 1) % subjectTurnOrder.length;
+                                break;
+                            }
+                            subjectCycleIndex = (subjectCycleIndex + 1) % subjectTurnOrder.length;
+                        }
+                    }
+
+                     if (!lessonAdded) break;
+                }
+            }
+            return finalSchedule;
+        }
+
+        function generateSchedule() {
+            const totalDays = parseInt(document.getElementById('total-days').value);
+            const maxLessonsPerDay = parseInt(document.getElementById('max-lessons-per-day').value) || null;
+
+            if (isNaN(totalDays) || totalDays <= 0) {
+                alert("الرجاء إدخال عدد صحيح للأيام.");
+                return;
+            }
+            
+            const mode = document.querySelector('input[name="schedule-mode"]:checked').value;
+            let finalSchedule;
+            
+            const groups = document.querySelectorAll('.study-group');
+            if (groups.length === 0) { 
+                alert("الرجاء إضافة مجموعة دراسية واحدة على الأقل."); 
+                return;
+            }
+            
+            let lessonsForFeasibilityCheck = [];
+             groups.forEach(groupDiv => {
+                lessonsForFeasibilityCheck.push(...getSchedulableLessons(groupDiv));
+            });
+             if (lessonsForFeasibilityCheck.length === 0) { alert("لا توجد دروس متبقية للجدولة. عمل رائع!"); return; }
+
+            if (maxLessonsPerDay && (lessonsForFeasibilityCheck.length > maxLessonsPerDay * totalDays)) {
+                alert(`الخطة غير ممكنة! \n\nعدد الدروس الإجمالي (${lessonsForFeasibilityCheck.length}) أكبر من سعة الجدول القصوى (${maxLessonsPerDay} درس/يوم × ${totalDays} يوم = ${maxLessonsPerDay * totalDays} درس). \n\nالحل: الرجاء زيادة عدد الأيام أو الحد الأقصى اليومي، أو تقليل عدد الدروس.`);
+                return;
+            }
+
+            if (mode === 'interleaved') {
+                finalSchedule = geniusScheduler(lessonsForFeasibilityCheck, totalDays);
+            } else { // Sequential Mode
+                finalSchedule = {};
+                for (let i = 0; i < totalDays; i++) { finalSchedule[i] = []; }
+
+                let totalLessonsInPlan = 0;
+                const groupsInfo = [];
+                groups.forEach(groupDiv => {
+                    const lessons = getSchedulableLessons(groupDiv);
+                    if (lessons.length > 0) {
+                        groupsInfo.push({ lessons, lessonCount: lessons.length });
+                        totalLessonsInPlan += lessons.length;
+                    }
+                });
+
+                let allocatedDaysTracker = 0;
+                groupsInfo.forEach((group, index) => {
+                    const proportion = group.lessonCount / totalLessonsInPlan;
+                    let daysForGroup = (index === groupsInfo.length - 1) 
+                        ? totalDays - allocatedDaysTracker
+                        : Math.max(1, Math.round(proportion * totalDays));
+                    
+                    if (daysForGroup > 0 && group.lessonCount > 0) {
+                        const groupSchedule = geniusScheduler(group.lessons, daysForGroup);
+                        
+                        for (let i = 0; i < daysForGroup; i++) {
+                            const currentDayIndex = allocatedDaysTracker + i;
+                            if (currentDayIndex < totalDays && groupSchedule[i] && groupSchedule[i].length > 0) {
+                                finalSchedule[currentDayIndex].push(...groupSchedule[i]);
+                            }
+                        }
+                    }
+                    allocatedDaysTracker += daysForGroup;
+                });
+            }
+            
+            renderSchedule(finalSchedule, totalDays);
+        }
+
+        // --- END: THE GENIUS SCHEDULER ENGINE (v18 - FINAL) ---
+
+        function renderSchedule(scheduleData, totalDays) { const outputDiv = document.getElementById('schedule-output'); outputDiv.innerHTML = ''; for (let i = 0; i < totalDays; i++) { const day = i + 1; const tasks = scheduleData[i] || []; let tasksHTML = '<ul>'; if (tasks.length > 0) { tasks.forEach(task => { tasksHTML += `<li><span>${task.lesson}</span><span class="task-subject" style="background-color:${task.color};">${task.subject}</span></li>`; }); } else { tasksHTML += '<li>🎉 يوم راحة!</li>'; } tasksHTML += '</ul>'; outputDiv.innerHTML += `<div class="day-card"><div class="day-header">اليوم ${day}</div>${tasksHTML}</div>`; } showView('main-view'); document.getElementById('schedule-container').style.display = 'block'; document.getElementById('schedule-container').scrollIntoView({ behavior: 'smooth' }); }
+        
+        async function exportScheduleAsPDF() {
+            const loader = document.getElementById('pdf-loader');
+            const scheduleOutput = document.getElementById('schedule-output');
+            
+            if (!scheduleOutput || scheduleOutput.children.length === 0) {
+                alert('لا يوجد جدول لتصديره!');
+                return;
+            }
+
+            loader.style.display = 'flex';
+            // تطبيق كلاس التنسيق المؤقت لضمان العرض الكامل
+            scheduleOutput.classList.add('pdf-export-layout');
+            // إعطاء المتصفح مهلة لإعادة الرسم
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const margin = 10;
+                let currentY = margin;
+                const dayCards = scheduleOutput.querySelectorAll('.day-card');
+                let contentAdded = false;
+
+                for (const card of dayCards) {
+                    const canvas = await window.html2canvas(card, {
+                        scale: 2,
+                        useCORS: true,
+                        backgroundColor: '#ffffff' // ضمان خلفية بيضاء
+                    });
+                    
+                    if (canvas.height === 0 || canvas.width === 0) continue;
+
+                    const imgData = canvas.toDataURL('image/png');
+                    const imgProps = pdf.getImageProperties(imgData);
+                    const imgWidthInPdf = pdfWidth - margin * 2;
+                    const imgHeightInPdf = (imgProps.height * imgWidthInPdf) / imgProps.width;
+
+                    if (currentY + imgHeightInPdf > pdfHeight - margin) {
+                        pdf.addPage();
+                        currentY = margin;
+                    }
+
+                    pdf.addImage(imgData, 'PNG', margin, currentY, imgWidthInPdf, imgHeightInPdf);
+                    currentY += imgHeightInPdf + 5; // 5mm padding بين البطاقات
+                    contentAdded = true;
+                }
+                
+                if (contentAdded) {
+                    pdf.save('خطة-المذاكرة.pdf');
+                } else {
+                    alert("فشل في تحويل الجدول إلى صورة. قد تكون هناك مشكلة في عرض الجدول.");
+                }
+
+            } catch (error) {
+                console.error("Error generating PDF: ", error);
+                alert("حدث خطأ أثناء إنشاء ملف الـ PDF. تأكد من أن ملفات المكتبات موجودة في مجلد js.");
+            } finally {
+                // إزالة كلاس التنسيق المؤقت بعد الانتهاء
+                scheduleOutput.classList.remove('pdf-export-layout');
+                loader.style.display = 'none';
+            }
+        }
+
+        function exportData() {
+            const dataToSave = {
+                subjects: [],
+                appState: {
+                    xp: appState.xp,
+                    level: appState.level,
+                    unlockedBadges: Array.from(appState.unlockedBadges),
+                    lastStudyDate: appState.lastStudyDate,
+                    currentStreak: appState.currentStreak
+                }
+            };
+            document.querySelectorAll('.subject').forEach(subjectDiv => {
+                const subject = { name: subjectDiv.dataset.name, color: subjectDiv.dataset.color, units: [] };
+                subjectDiv.querySelectorAll('.unit').forEach(unitDiv => {
+                    const unit = { name: unitDiv.dataset.name, include: unitDiv.querySelector('.unit-include-checkbox').checked, lessons: [] };
+                    unitDiv.querySelectorAll('.lesson-item').forEach(lessonItem => {
+                        const name = lessonItem.querySelector('.lesson-name').value.trim();
+                        const done = lessonItem.querySelector('.lesson-done-checkbox').checked;
+                        if (name) unit.lessons.push({ name, done });
+                    });
+                    subject.units.push(unit);
+                });
+                dataToSave.subjects.push(subject);
+            });
+            if (dataToSave.subjects.length === 0 && appState.xp === 0) { alert("لا توجد بيانات لتصديرها!"); return; }
+            const dataStr = JSON.stringify(dataToSave, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', 'my_study_plan.json');
+            linkElement.click();
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    document.getElementById('subjects-container').innerHTML = '';
+                    subjectCounter = 0;
+                    if(data.subjects) {
+                       data.subjects.forEach(subjectData => addSubject(subjectData.name, subjectData.units, subjectData.color));
+                    }
+                    if(data.appState) {
+                        appState.xp = data.appState.xp || 0;
+                        appState.level = data.appState.level || 1;
+                        appState.unlockedBadges = new Set(data.appState.unlockedBadges || []);
+                        appState.lastStudyDate = data.appState.lastStudyDate || null;
+                        appState.currentStreak = data.appState.currentStreak || 0;
+                    } else {
+                        appState = { xp: 0, level: 1, unlockedBadges: new Set(), lastStudyDate: null, currentStreak: 0 };
+                    }
+                    updateAllGroupPickers();
+                    updateAndRenderAllStats(false);
+                } catch (error) {
+                    alert("خطأ في قراءة الملف. تأكد من أنه ملف JSON صحيح.");
+                    console.error("Import Error: ", error);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            showView('main-view');
+        });
+    </script>
+</body>
+</html>
